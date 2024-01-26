@@ -60,65 +60,6 @@ void setup()
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
 }
 
-void loop()
-{
-    SerialEvent();
-    timer.tick();
-    GNSS_timer();
-}
-
-// polling function for serial inputs
-void SerialEvent(void)
-{
-    com_p serial_command;
-    size_t len = sizeof(command_st);
-
-
-    if (Serial.readBytes((uint8_t*) serial_command, sizeof(command_st)) != sizeof(command_st))
-    {
-        return;
-    }
-
-    switch (serial_command->command)
-    {
-        case FORWARD:
-            move_forward(serial_command->value, serial_command->unique_id);
-            break;
-
-        case REVERSE:
-            move_reverse(serial_command->value, serial_command->unique_id);
-            break;
-
-        case LEFT:
-            turn_left(serial_command->value, serial_command->unique_id);
-            break;
-        
-        case RIGHT:
-            turn_right(serial_command->value, serial_command->unique_id);
-            break;
-
-        case GETGPS:
-            get_gps(serial_command->unique_id);
-            break;
-
-        default:
-            
-            break;
-        
-    }
-}
-
-void GNSS_timer()
-{
-    if (millis() - lastTime > GNSS_UPDATE_TIME)
-    {
-        struct reply_st reply;
-        lastTime = millis();
-        
-        get_gps(DEFAULT_ID);
-    }
-}
-
 bool stop_motors(void* unique_id)
 {
     struct reply_st reply;
@@ -235,4 +176,64 @@ void get_gps(uint16_t unique_id)
     reply.unique_id = unique_id;
 
     Serial.write((uint8_t*)&reply, sizeof(reply));
+}
+
+// polling function for serial inputs
+void SerialEvent(void)
+{
+    com_p serial_command = NULL;
+    size_t len = sizeof(command_st);
+
+
+    if (Serial.readBytes((uint8_t*) serial_command, len) != len)
+    {
+        return;
+    }
+
+    switch (serial_command->command)
+    {
+        case FORWARD:
+            move_forward(serial_command->value, serial_command->unique_id);
+            break;
+
+        case REVERSE:
+            move_reverse(serial_command->value, serial_command->unique_id);
+            break;
+
+        case LEFT:
+            turn_left(serial_command->value, serial_command->unique_id);
+            break;
+        
+        case RIGHT:
+            turn_right(serial_command->value, serial_command->unique_id);
+            break;
+
+        case GETGPS:
+            get_gps(serial_command->unique_id);
+            break;
+
+        default:
+            
+            break;
+        
+    }
+}
+
+void GNSS_timer()
+{
+    if (millis() - lastTime > GNSS_UPDATE_TIME)
+    {
+        lastTime = millis();
+        
+        get_gps(DEFAULT_ID);
+    }
+}
+
+
+
+void loop()
+{
+    SerialEvent();
+    timer.tick();
+    GNSS_timer();
 }
