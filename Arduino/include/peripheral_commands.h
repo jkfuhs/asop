@@ -17,7 +17,14 @@ struct command_st
 {
     uint8_t command;
     uint16_t value;
-    uint32_t unique_id;
+    uint16_t unique_id;
+}__attribute__((__packed__));
+
+struct reply_st
+{
+    int32_t latitude;
+    int32_t longitude;
+    uint16_t unique_id;
 }__attribute__((__packed__));
 
 #endif

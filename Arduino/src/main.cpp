@@ -1,26 +1,32 @@
 #include <Arduino.h>
+#include <Wire.h>
 
+#include "SparkFun_u-blox_GNSS_Arduino_Library.h"
 #include "peripheral_commands.h"
 #include "arduino-timer.h"
 
 #define SERIAL_BAUD 115200
-#define VALUE_TO_DISTANCE   1     // TODO: do measurememts and get a precise number for this.
+#define GNSS_UPDATE_TIME    1000    // send GNSS data every 1000 msec
+#define VALUE_TO_DISTANCE   1       // TODO: do measurememts and get a precise number for this.
 #define VALUE_TO_TURN       1
+#define DEFAULT_ID          0
 
-#define in1L 9
-#define in2L 8
-#define in3L 7
-#define in4L 6
+#define in1L        9
+#define in2L        8
+#define in3L        7
+#define in4L        6
 
-#define in1R 5
-#define in2R 4
-#define in3R 3
-#define in4R 2
+#define in1R        5
+#define in2R        4
+#define in3R        3
+#define in4R        2
 
-#define DONE_MSG    "DONE"
+#define DONE_MSG    -1
 
 
 auto timer = timer_create_default();
+SFE_UBLOX_GNSS myGNSS;
+long lastTime = 0;
 
 void setup() 
 {
@@ -47,12 +53,18 @@ void setup()
 
     // initialize serial coms with jetson
     Serial.begin(SERIAL_BAUD);
+    while (!Serial); // wait for Serial with Jetson to open
+
+    Wire.begin();
+    myGNSS.setI2COutput(COM_TYPE_UBX);
+    myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
 }
 
-void loop() 
+void loop()
 {
     SerialEvent();
     timer.tick();
+    GNSS_timer();
 }
 
 // polling function for serial inputs
@@ -86,7 +98,7 @@ void SerialEvent(void)
             break;
 
         case GETGPS:
-            get_gps();
+            get_gps(serial_command->unique_id);
             break;
 
         default:
@@ -96,8 +108,20 @@ void SerialEvent(void)
     }
 }
 
-bool stop_motors(void *m)
+void GNSS_timer()
 {
+    if (millis() - lastTime > GNSS_UPDATE_TIME)
+    {
+        struct reply_st reply;
+        lastTime = millis();
+        
+        get_gps(DEFAULT_ID);
+    }
+}
+
+bool stop_motors(void* unique_id)
+{
+    struct reply_st reply;
     // turn off motors
     digitalWrite(in1L, LOW);
     digitalWrite(in2L, LOW);
@@ -109,13 +133,16 @@ bool stop_motors(void *m)
     digitalWrite(in4R, LOW);
 
     // send DONE message
-    Serial.print(DONE_MSG);
-    Serial.println((uint32_t) m);
+    reply.unique_id = (uint16_t) unique_id;
+    reply.latitude = myGNSS.getLatitude();
+    reply.longitude = myGNSS.getLongitude();
+
+    Serial.write((uint8_t*)&reply, sizeof(reply));
 
     return false;
 }
 
-void move_forward(uint16_t value, uint32_t unique_id)
+void move_forward(uint16_t value, uint16_t unique_id)
 {
     unsigned long drive_time;
     
@@ -135,7 +162,7 @@ void move_forward(uint16_t value, uint32_t unique_id)
     timer.in(drive_time, stop_motors, (void*) unique_id);
 }
 
-void move_reverse(uint16_t value, uint32_t unique_id)
+void move_reverse(uint16_t value, uint16_t unique_id)
 {
     unsigned long drive_time;
 
@@ -155,7 +182,7 @@ void move_reverse(uint16_t value, uint32_t unique_id)
     timer.in(drive_time, stop_motors, (void*) unique_id);
 }
 
-void turn_left(uint16_t value, uint32_t unique_id)
+void turn_left(uint16_t value, uint16_t unique_id)
 {
     unsigned long drive_time;
     
@@ -177,7 +204,7 @@ void turn_left(uint16_t value, uint32_t unique_id)
     timer.in(drive_time, stop_motors, (void*) unique_id);
 }
 
-void turn_right(uint16_t value, uint32_t unique_id)
+void turn_right(uint16_t value, uint16_t unique_id)
 {
     unsigned long drive_time;
 
@@ -198,7 +225,14 @@ void turn_right(uint16_t value, uint32_t unique_id)
     timer.in(drive_time, stop_motors, (void*) unique_id);
 }
 
-void get_gps(void)
+void get_gps(uint16_t unique_id)
 {
-    // get gps data
+    struct reply_st reply;
+
+    reply.latitude = myGNSS.getLatitude();
+    reply.longitude = myGNSS.getLongitude();
+
+    reply.unique_id = unique_id;
+
+    Serial.write((uint8_t*)&reply, sizeof(reply));
 }
