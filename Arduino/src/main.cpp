@@ -21,15 +21,21 @@
 #define in3R        3
 #define in4R        2
 
+
 #define DONE_MSG    -1
 
 
 auto timer = timer_create_default();
 SFE_UBLOX_GNSS myGNSS;
 long lastTime = 0;
+uint8_t led_value = HIGH;
 
 void setup() 
 {
+    // setup LED
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, led_value);
+
     // initialize peripherals
         // Motors
     pinMode(in1L, OUTPUT);
@@ -56,8 +62,17 @@ void setup()
 
     // GNSS setup
     Wire.begin();
+
+    while (myGNSS.begin() == false)
+    {
+        led_value = led_value ^ HIGH;
+        digitalWrite(LED_BUILTIN, led_value);
+        delay(100);
+    }
     myGNSS.setI2COutput(COM_TYPE_UBX);
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
+    led_value = LOW;
+    digitalWrite(LED_BUILTIN, led_value);
 }
 
 bool stop_motors(void* unique_id)
@@ -219,21 +234,9 @@ void SerialEvent(void)
     }
 }
 
-void GNSS_timer()
-{
-    if (millis() - lastTime > GNSS_UPDATE_TIME)
-    {
-        lastTime = millis();
-        
-        get_gps(DEFAULT_ID);
-    }
-}
-
-
 
 void loop()
 {
     SerialEvent();
     timer.tick();
-    GNSS_timer();
 }
