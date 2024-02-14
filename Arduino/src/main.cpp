@@ -49,12 +49,12 @@ void setup()
     digitalWrite(in2R, LOW);
     digitalWrite(in3R, LOW);
     digitalWrite(in4R, LOW);
-        // GPS
 
     // initialize serial coms with jetson
     Serial.begin(SERIAL_BAUD);
     while (!Serial); // wait for Serial with Jetson to open
 
+    // GNSS setup
     Wire.begin();
     myGNSS.setI2COutput(COM_TYPE_UBX);
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT);
@@ -75,8 +75,8 @@ bool stop_motors(void* unique_id)
 
     // send DONE message
     reply.unique_id = (uint16_t) unique_id;
-    reply.latitude = myGNSS.getLatitude();
-    reply.longitude = myGNSS.getLongitude();
+    reply.latitude = 0;
+    reply.longitude = 0;
 
     Serial.write((uint8_t*)&reply, sizeof(reply));
 
