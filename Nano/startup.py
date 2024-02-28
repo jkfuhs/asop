@@ -1,16 +1,19 @@
 import serial
 import struct
+import time
 
 # Replace with port name
-port = "/dev/ttyUSB0"
-baud_rate = 115200
+port = "COM3"
+baud_rate = 9600
+
+# various variables
+num_gps_tokens = 4
 
 # Create serial object
 ser = serial.Serial(port, baud_rate, timeout=1)
 
 # Define command strucutre
 command_format = 'BHH'
-reply_format = 'llH'
 
 # Define the command values
 command_data = {
@@ -18,33 +21,49 @@ command_data = {
     'REVERSE': 1,
     'LEFT': 2,
     'RIGHT': 3,
-    'GETGPTS': 4
+    'GETGPS': 4
 }
 
 # Function to create a command packet
 def create_command_packet(command, value, unique_id):
     return struct.pack(command_format, command_data[command], value, unique_id)
 
-# Function to check if a complete reply is ready
-def is_reply_ready():
-    return ser.in_waiting >= struct.calcsize(reply_format)
+# Function to verify validity of GPS packet
+def validate_gps_data(gps_data):
+    tokens = gps_data.split()
+    print("len = " + str(len(tokens)))
+    # check length requirement
+    if len(tokens) != 4:
+        return False
+    if tokens[0] != 'G':
+        return False
+    
+    return True
 
 i = 1
+ser.timeout = 10
+ser.flushInput()
 while 1:
     # Attempt to send a command
-    command_packet = create_command_packet('FORWARD', 10, i)    
+    command_packet = create_command_packet('GETGPS', 0, 0)    
     i = i+1
     ser.write(command_packet)
     
     # Wait unil reply is sent back
-    while not is_reply_ready():
-        pass
+    if ser.in_waiting == 0:
+        time.sleep(1)
+        continue
 
-    # Read and extract the reply packet
-    received_data = ser.read(struct.calcsize(reply_format))
-    latitude, longitude, unique_id = struct.unpack(reply_format, received_data)
+    # Read from serial buffer
+    gps_data = ser.read_until()
 
-    # Print unpacked data
-    print(f"Latitude: {latitude}, Longitude: {longitude}, Unique ID: {unique_id}")
+    # Trim serial metadata (b'...\r\n')
+    gps_data = gps_data.decode()
+    if validate_gps_data(gps_data):
+        print(gps_data)
+
+    time.sleep(2)
+
+
 
 ser.close()

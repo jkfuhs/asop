@@ -1,7 +1,7 @@
 #ifndef PERIPHERALCOMH
-#define PERIPHERALCOMH
+#define PERIPHERALCOMH 
 
-#define MOTORCOMMAND_Pos 
+#define REPLY_DATA_SIZE 9
 
 typedef enum
 {
@@ -22,9 +22,21 @@ struct command_st
 
 struct reply_st
 {
-    int32_t latitude;
-    int32_t longitude;
+    uint8_t reply_type;
+    uint8_t data[REPLY_DATA_SIZE];
+}__attribute__((__packed__));
+
+struct done_reply_st
+{
     uint16_t unique_id;
 }__attribute__((__packed__));
+
+struct gps_reply_st
+{
+    int32_t latitude;
+    int32_t longitude;
+    uint8_t SIV;
+}__attribute__((__packed__));
+
 
 #endif

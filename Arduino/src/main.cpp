@@ -3,9 +3,8 @@
 
 #include "SparkFun_u-blox_GNSS_Arduino_Library.h"
 #include "peripheral_commands.h"
-#include "arduino-timer.h"
 
-#define SERIAL_BAUD 115200
+#define SERIAL_BAUD 9600
 #define GNSS_UPDATE_TIME    1000    // send GNSS data every 1000 msec
 #define VALUE_TO_DISTANCE   1       // TODO: do measurememts and get a precise number for this.
 #define VALUE_TO_TURN       1
@@ -25,10 +24,12 @@
 #define DONE_MSG    -1
 
 
-auto timer = timer_create_default();
 SFE_UBLOX_GNSS myGNSS;
-long lastTime = 0;
+uint32_t lastTime = 0;
+uint32_t lastMoveTime = 0;
+uint32_t moveTime = 0;
 uint8_t led_value = HIGH;
+uint16_t lastMove_id = 0;
 
 void setup() 
 {
@@ -42,6 +43,7 @@ void setup()
     pinMode(in2L, OUTPUT);
     pinMode(in3L, OUTPUT);
     pinMode(in4L, OUTPUT);
+
     pinMode(in1R, OUTPUT);
     pinMode(in2R, OUTPUT);
     pinMode(in3R, OUTPUT);
@@ -51,6 +53,7 @@ void setup()
     digitalWrite(in2L, LOW);
     digitalWrite(in3L, LOW);
     digitalWrite(in4L, LOW);
+
     digitalWrite(in1R, LOW);
     digitalWrite(in2R, LOW);
     digitalWrite(in3R, LOW);
@@ -59,6 +62,7 @@ void setup()
     // initialize serial coms with jetson
     Serial.begin(SERIAL_BAUD);
     while (!Serial); // wait for Serial with Jetson to open
+    // Serial.println("ASOP Arduino main");
 
     // GNSS setup
     Wire.begin();
@@ -75,47 +79,58 @@ void setup()
     digitalWrite(LED_BUILTIN, led_value);
 }
 
-bool stop_motors(void* unique_id)
+void stop_motors(uint16_t unique_id)
 {
-    struct reply_st reply;
     // turn off motors
     digitalWrite(in1L, LOW);
     digitalWrite(in2L, LOW);
     digitalWrite(in3L, LOW);
     digitalWrite(in4L, LOW);
+
     digitalWrite(in1R, LOW);
     digitalWrite(in2R, LOW);
     digitalWrite(in3R, LOW);
     digitalWrite(in4R, LOW);
 
+    
+    if (unique_id == 0)
+    {
+        return;
+    }
+
     // send DONE message
-    reply.unique_id = (uint16_t) unique_id;
-    reply.latitude = 0;
-    reply.longitude = 0;
+    Serial.print("DONE ");
+    Serial.println(unique_id);
 
-    Serial.write((uint8_t*)&reply, sizeof(reply));
+    return;
+}
 
-    return false;
+void set_stop_timer(uint32_t drive_time, uint16_t unique_id)
+{
+    moveTime = drive_time;
+    lastMove_id = unique_id;
+    lastMoveTime = millis();
 }
 
 void move_forward(uint16_t value, uint16_t unique_id)
 {
-    unsigned long drive_time;
+    uint32_t drive_time;
     
     // calculate how long to go forward from 'value'
     drive_time = VALUE_TO_DISTANCE * value; 
 
     // set motors forward
-    digitalWrite(in1L, HIGH);
-    digitalWrite(in2L, LOW);
-    digitalWrite(in3L, HIGH);
-    digitalWrite(in4L, LOW);
+    digitalWrite(in1L, LOW);
+    digitalWrite(in2L, HIGH);
+    digitalWrite(in3L, LOW);
+    digitalWrite(in4L, HIGH);
+    
     digitalWrite(in1R, HIGH);
     digitalWrite(in2R, LOW);
     digitalWrite(in3R, HIGH);
     digitalWrite(in4R, LOW);
 
-    timer.in(drive_time, stop_motors, (void*) unique_id);
+    set_stop_timer(drive_time, unique_id);
 }
 
 void move_reverse(uint16_t value, uint16_t unique_id)
@@ -126,48 +141,6 @@ void move_reverse(uint16_t value, uint16_t unique_id)
     drive_time = VALUE_TO_DISTANCE * value;
 
     // set motors reverse
-    digitalWrite(in1L, LOW);
-    digitalWrite(in2L, HIGH);
-    digitalWrite(in3L, LOW);
-    digitalWrite(in4L, HIGH);
-    digitalWrite(in1R, LOW);
-    digitalWrite(in2R, HIGH);
-    digitalWrite(in3R, LOW);
-    digitalWrite(in4R, HIGH);
-
-    timer.in(drive_time, stop_motors, (void*) unique_id);
-}
-
-void turn_left(uint16_t value, uint16_t unique_id)
-{
-    unsigned long drive_time;
-    
-    // calculate how long to turn left
-    drive_time = VALUE_TO_TURN * value;
-
-    // set left side reverse, right side forward
-    digitalWrite(in1L, LOW);
-    digitalWrite(in2L, HIGH);
-    digitalWrite(in3L, LOW);
-    digitalWrite(in4L, HIGH);
-
-    digitalWrite(in1R, HIGH);
-    digitalWrite(in2R, LOW);
-    digitalWrite(in3R, HIGH);
-    digitalWrite(in4R, LOW);
-
-
-    timer.in(drive_time, stop_motors, (void*) unique_id);
-}
-
-void turn_right(uint16_t value, uint16_t unique_id)
-{
-    unsigned long drive_time;
-
-    // calculate how long to turn right
-    drive_time = VALUE_TO_TURN * value;
-
-    // set left side forward, right side reverse
     digitalWrite(in1L, HIGH);
     digitalWrite(in2L, LOW);
     digitalWrite(in3L, HIGH);
@@ -178,19 +151,66 @@ void turn_right(uint16_t value, uint16_t unique_id)
     digitalWrite(in3R, LOW);
     digitalWrite(in4R, HIGH);
 
-    timer.in(drive_time, stop_motors, (void*) unique_id);
+    set_stop_timer(drive_time, unique_id);
+}
+
+void turn_left(uint16_t value, uint16_t unique_id)
+{
+    unsigned long drive_time;
+    
+    // calculate how long to turn left
+    drive_time = VALUE_TO_TURN * value;
+
+    digitalWrite(in1L, HIGH);
+    digitalWrite(in2L, LOW);
+    digitalWrite(in3L, HIGH);
+    digitalWrite(in4L, LOW);
+
+    digitalWrite(in1R, HIGH);
+    digitalWrite(in2R, LOW);
+    digitalWrite(in3R, HIGH);
+    digitalWrite(in4R, LOW);
+
+    set_stop_timer(drive_time, unique_id);
+}
+
+void turn_right(uint16_t value, uint16_t unique_id)
+{
+    unsigned long drive_time;
+
+    // calculate how long to turn right
+    drive_time = VALUE_TO_TURN * value;
+
+    // set left side forward, right side reverse
+    digitalWrite(in1L, LOW);
+    digitalWrite(in2L, HIGH);
+    digitalWrite(in3L, LOW);
+    digitalWrite(in4L, HIGH);
+
+    digitalWrite(in1R, LOW);
+    digitalWrite(in2R, HIGH);
+    digitalWrite(in3R, LOW);
+    digitalWrite(in4R, HIGH);
+
+    set_stop_timer(drive_time, unique_id);
 }
 
 void get_gps(uint16_t unique_id)
 {
-    struct reply_st reply;
+    int32_t latitude;
+    int32_t longitude;
+    uint16_t siv;
 
-    reply.latitude = myGNSS.getLatitude();
-    reply.longitude = myGNSS.getLongitude();
+    latitude = myGNSS.getLatitude();
+    longitude = myGNSS.getLongitude();
+    siv = myGNSS.getSIV();
 
-    reply.unique_id = unique_id;
-
-    Serial.write((uint8_t*)&reply, sizeof(reply));
+    Serial.print("G ");
+    Serial.print(latitude);
+    Serial.print(" ");
+    Serial.print(longitude);
+    Serial.print(" ");
+    Serial.println(siv);
 }
 
 // polling function for serial inputs
@@ -237,6 +257,21 @@ void SerialEvent(void)
 
 void loop()
 {
-    SerialEvent();
-    timer.tick();
+
+    if (moveTime > 0 && millis() - lastTime > moveTime)
+    {
+        stop_motors(lastMove_id);
+        moveTime = 0;
+    }
+
+    // if (millis() - lastTime > 1000)
+    // {
+    //     lastTime = millis();
+    //     get_gps(0);
+       
+    //     led_value = led_value ^ HIGH;
+    //     digitalWrite(LED_BUILTIN, led_value);
+    // }
+    
+    SerialEvent();    
 }
