@@ -1,0 +1,6 @@
+Usage:
+Run the DFS_nav.py script on the nano when it boots. It will use the coordinates
+from field_coordinates.txt to map out the field. The first coordinate should be
+the southwest most point and the second coordinate should be the northeast most
+point. Anything south or west of the first coordinate or north or east of the
+second coordinate is out of bounds.
