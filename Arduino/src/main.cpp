@@ -263,15 +263,6 @@ void loop()
         stop_motors(lastMove_id);
         moveTime = 0;
     }
-
-    // if (millis() - lastTime > 1000)
-    // {
-    //     lastTime = millis();
-    //     get_gps(0);
-       
-    //     led_value = led_value ^ HIGH;
-    //     digitalWrite(LED_BUILTIN, led_value);
-    // }
     
     SerialEvent();    
 }
