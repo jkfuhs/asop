@@ -1,99 +1,72 @@
-#!/usr/bin/env python3
-#
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-#
-
-import sys
-import argparse
-import serial #################################here
-
 from jetson_inference import detectNet
-from jetson_utils import videoSource, videoOutput, Log
+from jetson_utils import videoSource, videoOutput
+# import serial
+import struct
+import time
+import math
 
-# parse the command line
-parser = argparse.ArgumentParser(description="Locate objects in a live camera stream using an object detection DNN.", 
-                                 formatter_class=argparse.RawTextHelpFormatter, 
-                                 epilog=detectNet.Usage() + videoSource.Usage() + videoOutput.Usage() + Log.Usage())
 
-parser.add_argument("input", type=str, default="", nargs='?', help="URI of the input stream")
-parser.add_argument("output", type=str, default="", nargs='?', help="URI of the output stream")
-parser.add_argument("--network", type=str, default="ssd-mobilenet-v2", help="pre-trained model to load (see below for options)")
-parser.add_argument("--overlay", type=str, default="box,labels,conf", help="detection overlay flags (e.g. --overlay=box,labels,conf)\nvalid combinations are:  'box', 'labels', 'conf', 'none'")
-parser.add_argument("--threshold", type=float, default=0.5, help="minimum detection threshold to use") 
+# port = "COM3"
+# baud_rate = 9600
+# ser = serial.Serial(port, baud_rate, timeout=1)
+command_format = 'BHH'
 
-try:
-	args = parser.parse_known_args()[0]
-except:
-	print("")
-	parser.print_help()
-	sys.exit(0)
+command_data = {
+    'FORWARD': 0,
+    'REVERSE': 1,
+    'LEFT': 2,
+    'RIGHT': 3,
+    'GETGPS': 4
+}
 
-# create video sources and outputs
-input = videoSource(args.input, argv=sys.argv)
-output = videoOutput(args.output, argv=sys.argv)
-	
-# load the object detection network
-net = detectNet(args.network, sys.argv, args.threshold)
+def create_command_packet(command, value, unique_id):
+    return struct.pack(command_format, command_data[command], value, unique_id)
 
-# note: to hard-code the paths to load a model, the following API can be used:
-#
-# net = detectNet(model="model/ssd-mobilenet.onnx", labels="model/labels.txt", 
-#                 input_blob="input_0", output_cvg="scores", output_bbox="boxes", 
-#                 threshold=args.threshold)
 
-# process frames until EOS or the user exits
 
-ser = serial.Serial('COM1', 9600)#########################here
-while True:
-    # capture the next image
-    img = input.Capture()
+net = detectNet("ssd-mobilenet-v2", threshold=0.5)
+camera0 = videoSource("csi://0")      # '/dev/video0' for V4L2
+camera1 = videoSource("csi://1")      # '/dev/video0' for V4L2
 
-    if img is None: # timeout
-        continue  
-        
-    # detect objects in the image (with overlay)
-    detections = net.Detect(img, overlay=args.overlay)
+display0 = videoOutput("display://0") # 'my_video.mp4' for file
+display1 = videoOutput("display://1") # 'my_video.mp4' for file
 
-    # print the detections
-    print("detected {:d} objects in image".format(len(detections)))
+cmdID = 0
+def main():
 
-    for detection in detections:
-        class_label = net.GetClassDesc(detection.ClassID)
-        confidence = detection.Confidence
-        data_to_send = f"Class: {class_label}, Confidence: {confidence}\n"  ###########################This is what is sent
-        ser.write(data_to_send.encode()) 
-        time.sleep(0.1)        
-        print(detection)
+    while display0.IsStreaming():
+        stopFlag = 0
 
-    # render the image
-    output.Render(img)
+        img0 = camera0.Capture()
+        img1 = camera1.Capture()
 
-    # update the title bar
-    output.SetStatus("{:s} | Network {:.0f} FPS".format(args.network, net.GetNetworkFPS()))
+        if img0 is None: # capture timeout
+            continue
+        if img1 is None: # capture timeout
+            continue
 
-    # print out performance info
-    net.PrintProfilerTimes()
+        detections0 = net.Detect(img0)
+        detections1 = net.Detect(img1)
 
-    # exit on input/output EOS
-    if not input.IsStreaming() or not output.IsStreaming():
-        break
+        for detection in detections0:
+            print("Camera 0 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
+            if(detection.ClassID == "PERSON"):
+                stopFlag = 1
+        for detection in detections1:
+            print("Camera 1 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
+            if(detection.ClassID == "PERSON"):
+                stopFlag = 1
 
-ser.close()
+        display0.Render(img0)
+        display0.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
+
+        display1.Render(img1)
+        display1.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
+
+        if not stopFlag:
+            command_packet = create_command_packet('FORWARD', 1, cmdID)
+            cmdID += 1
+
+
+if __name__ == "__main__":
+    main()
