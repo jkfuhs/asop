@@ -2,7 +2,6 @@ import serial
 import struct
 import time
 import math
-import numpy as np
 import sys
 
 # DEMO import
@@ -16,8 +15,13 @@ v_obst_f = open("vert_obstacles.txt", "r")
 port = "COM3"
 baud_rate = 9600
 
+# Start pos
+start_pos = [0, 0]
+
 # Create serial object
 ser = serial.Serial(port, baud_rate, timeout=1)
+
+unique_id = 1
 
 # Define command structure
 command_format = 'BHH'
@@ -115,6 +119,7 @@ def demo_main():
     else:
         print("Robot in bounds. Beginning DFS of field for weeds")
         print(grid_coord)
+        start_pos = grid_coord
         vert_obstacles = [[False for i in range(len(grid[0]))] for j in  range(len(grid))]
         horiz_obstacles = [[False for i in range(len(grid[0]))] for j in  range(len(grid))]
         DFS_step(grid, grid_coord, vert_obstacles, horiz_obstacles)
@@ -138,6 +143,18 @@ def demo_main():
 # Placeholder functions for demo
 def move_forward():
     pass
+    # packet = create_command_packet(command_data["FORWARD"], 1,unique_id)
+    # ser.flushInput()
+    # ser.write(packet)
+    # done = False
+    # while (done == False):
+    #     if ser.in_waiting == 0:
+    #         continue
+
+    #     reply = ser.read_until()
+    #     reply = reply.decode()
+    #     if (reply[:4] == "DONE" and int(reply[5:]) == unique_id):
+    #         return
 
 def turn_west():
     pass
@@ -231,14 +248,17 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
             # horizontal_obstacles[grid_coord[0]][grid_coord[1]] = True
 
             # input("checking west")
-            # Check for weeds
-            if (check_weeds()):
-                grid[grid_coord[0]-1][grid_coord[1]] = 2
-            else:
-                grid[grid_coord[0]-1][grid_coord[1]] = 1
+            
 
             # Check obstacles
             if (horizontal_obstacles[grid_coord[0]][grid_coord[1]] == False):
+                
+                # Check for weeds
+                if (check_weeds()):
+                    grid[grid_coord[0]-1][grid_coord[1]] = 2
+                else:
+                    grid[grid_coord[0]-1][grid_coord[1]] = 1
+
                 # Move
                 move_forward()
                 grid_coord[0] -= 1
@@ -251,15 +271,13 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
                 horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles(True, grid_coord[0]+1, grid_coord[1])
                 # horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = True
 
-                
                 # Edge case where something moved into your path behind you, so you cannot return to where you were by stacks
-                if (horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] == True):
-                    # TODO
-                    return
-                
-                else:
-                    move_forward()
-                    grid_coord[0] += 1
+                while (horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] == True):
+                    # Current solution: wait until return path is clear
+                    horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles(True, grid_coord[0]+1, grid_coord[1])
+                    
+                move_forward()
+                grid_coord[0] += 1
 
     # Check if we're at the South border
     if grid_coord[1] > 0:
@@ -271,18 +289,18 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
             # input("checking south at coords: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]-1) + "]")
             # print(np.matrix(grid))
 
-
-            if (check_weeds()):
-                grid[grid_coord[0]][grid_coord[1]-1] = 2
-            else:
-                grid[grid_coord[0]][grid_coord[1]-1] = 1
-
             # input("updated grid")
             # print(np.matrix(grid))
 
 
             # Check obstacles
             if (vertical_obstacles[grid_coord[0]][grid_coord[1]] == False):
+
+                if (check_weeds()):
+                    grid[grid_coord[0]][grid_coord[1]-1] = 2
+                else:
+                    grid[grid_coord[0]][grid_coord[1]-1] = 1
+
                 # Move
                 move_forward()
                 grid_coord[1] -= 1
@@ -296,12 +314,10 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Edge case where something moved behind you
                 if (vertical_obstacles[grid_coord[0]][grid_coord[1]+1] == True):
-                    # TODO
-                    return
+                    vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles(False, grid_coord[0], grid_coord[1]+1)
             
-                else:
-                    move_forward()
-                    grid_coord[1]  += 1
+                move_forward()
+                grid_coord[1]  += 1
 
     # Check if we're at the north border
     if grid_coord[1] < len(grid[0])-1:
@@ -312,12 +328,13 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
             vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles(False, grid_coord[0], grid_coord[1]+1)
             # input("checking north")
 
-            if (check_weeds()):
-                grid[grid_coord[0]][grid_coord[1]+1] = 2
-            else:
-                grid[grid_coord[0]][grid_coord[1]+1] = 1
+            
 
             if (vertical_obstacles[grid_coord[0]][grid_coord[1]+1] == False):
+                if (check_weeds()):
+                    grid[grid_coord[0]][grid_coord[1]+1] = 2
+                else:
+                    grid[grid_coord[0]][grid_coord[1]+1] = 1
                 # Move
                 move_forward()
                 grid_coord[1] += 1
@@ -331,12 +348,10 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Edge case where something moved behind you
                 if (vertical_obstacles[grid_coord[0]][grid_coord[1]] == True):
-                    # TODO
-                    return
-                
-                else:
-                    move_forward()
-                    grid_coord[1] -= 1
+                    vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(False, grid_coord[0], grid_coord[1])
+
+                move_forward()
+                grid_coord[1] -= 1
 
     # Check if we're at the east border
     if grid_coord[0] < len(grid)-1:
@@ -367,13 +382,9 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Edge case where something moved behind you
                 if (horizontal_obstacles[grid_coord[0]][grid_coord[1]] == True):
-                    # TODO
-                    return
+                    horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(True, grid_coord[0], grid_coord[1])
 
-                else:
-                    move_forward()
-                    grid_coord[0] -= 1
+                move_forward()
+                grid_coord[0] -= 1
 
-        # If we get here, we're either done or something went wrong, so stop moving
-                        
-demo_main()
+        # If we get here, we're either done or stuck, so stop

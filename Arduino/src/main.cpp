@@ -7,6 +7,7 @@
 #define SERIAL_BAUD 9600
 #define GNSS_UPDATE_TIME    1000    // send GNSS data every 1000 msec
 #define VALUE_TO_DISTANCE   1       // TODO: do measurememts and get a precise number for this.
+#define DONE_TIMER          1000
 #define VALUE_TO_TURN       1
 #define DEFAULT_ID          0
 
@@ -26,10 +27,11 @@
 
 SFE_UBLOX_GNSS myGNSS;
 uint32_t lastTime = 0;
-uint32_t lastMoveTime = 0;
 uint32_t moveTime = 0;
 uint8_t led_value = HIGH;
 uint16_t lastMove_id = 0;
+uint16_t lastDone = 0;
+uint16_t lastDoneMsgTime = 0;
 
 void setup() 
 {
@@ -62,6 +64,8 @@ void setup()
     // initialize serial coms with jetson
     Serial.begin(SERIAL_BAUD);
     while (!Serial); // wait for Serial with Jetson to open
+    Serial.flush();
+
     // Serial.println("ASOP Arduino main");
 
     // GNSS setup
@@ -99,8 +103,9 @@ void stop_motors(uint16_t unique_id)
     }
 
     // send DONE message
-    Serial.print("DONE ");
-    Serial.println(unique_id);
+    lastDone = unique_id;
+    // Serial.print("DONE ");
+    // Serial.println(unique_id);
 
     return;
 }
@@ -109,7 +114,8 @@ void set_stop_timer(uint32_t drive_time, uint16_t unique_id)
 {
     moveTime = drive_time;
     lastMove_id = unique_id;
-    lastMoveTime = millis();
+    lastTime = millis();
+    digitalWrite(LED_BUILTIN, LOW);
 }
 
 void move_forward(uint16_t value, uint16_t unique_id)
@@ -129,6 +135,8 @@ void move_forward(uint16_t value, uint16_t unique_id)
     digitalWrite(in2R, LOW);
     digitalWrite(in3R, HIGH);
     digitalWrite(in4R, LOW);
+
+    digitalWrite(LED_BUILTIN, HIGH);
 
     set_stop_timer(drive_time, unique_id);
 }
@@ -219,6 +227,10 @@ void SerialEvent(void)
     com_p serial_command = NULL;
     size_t len = sizeof(command_st);
 
+    if (!Serial.available())
+    {
+        return;
+    }
 
     if (Serial.readBytes((uint8_t*) serial_command, len) != len)
     {
@@ -263,6 +275,13 @@ void loop()
         stop_motors(lastMove_id);
         moveTime = 0;
     }
+
+    // if (lastDone > 0 && millis() - lastDoneMsgTime > DONE_TIMER)
+    // {
+    //     Serial.print("DONE ");
+    //     Serial.println(lastDone);
+    //     lastDoneMsgTime = millis();
+    // }
     
     SerialEvent();    
 }
