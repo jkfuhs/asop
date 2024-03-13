@@ -3,9 +3,7 @@ import struct
 import time
 import math
 import sys
-
-# DEMO import
-from random import random
+from detectnet import check_weeds, check_obstacles
 
 # DEMO variables: DELETE for final product
 h_obst_f = open("horiz_obstacles.txt", "r")
@@ -168,36 +166,36 @@ def turn_south():
 def turn_north():
     pass
 
-def check_obstacles(Horiz_Vert, x, y):
+# def check_obstacles(Horiz_Vert, x, y):
 
-    r_val = False
+    # r_val = False
 
-    if Horiz_Vert == True:
-        # Check horizontal mapping
-        h_obst_f = open("horiz_obstacles.txt", "r")
-        for line in h_obst_f:
-            tokens = line.split()
-            if (int(tokens[0]) == x and int(tokens[1]) == y):
-                r_val = True
-        h_obst_f.close()
+    # if Horiz_Vert == True:
+    #     # Check horizontal mapping
+    #     h_obst_f = open("horiz_obstacles.txt", "r")
+    #     for line in h_obst_f:
+    #         tokens = line.split()
+    #         if (int(tokens[0]) == x and int(tokens[1]) == y):
+    #             r_val = True
+    #     h_obst_f.close()
         
-    else:
-        # Check vertical mapping
-        v_obst_f = open("vert_obstacles.txt", "r")
-        for line in v_obst_f:
-            tokens = line.split()
-            if (int(tokens[0]) == x and int(tokens[1]) == y):
-                r_val = True
-        v_obst_f.close()
+    # else:
+    #     # Check vertical mapping
+    #     v_obst_f = open("vert_obstacles.txt", "r")
+    #     for line in v_obst_f:
+    #         tokens = line.split()
+    #         if (int(tokens[0]) == x and int(tokens[1]) == y):
+    #             r_val = True
+    #     v_obst_f.close()
     
 
-    return r_val
+    # return r_val
 
-def check_weeds():
-    if random() < 0.9:
-        return False
-    else:
-        return True
+# def check_weeds():
+#     if random() < 0.9:
+#         return False
+#     else:
+#         return True
 
 def print_maps(grid, grid_coord, v_obst, h_obst):
     # For each row, do:

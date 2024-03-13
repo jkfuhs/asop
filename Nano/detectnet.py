@@ -67,6 +67,52 @@ def main():
             command_packet = create_command_packet('FORWARD', 1, cmdID)
             cmdID += 1
 
+# Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
+def check_obstacles():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    for detection in detections0:
+        if (detection.ClassID == "PERSON"):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == "PERSON"):
+            return True
+    
+    return False
+
+def check_weeds():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    for detection in detections0:
+        if (detection.ClassID == "Yellow Star Thistle"):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == "Yellow Star Thistle"):
+            return True
+    
+    return False
 
 if __name__ == "__main__":
     main()
