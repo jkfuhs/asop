@@ -1,14 +1,13 @@
 from jetson_inference import detectNet
 from jetson_utils import videoSource, videoOutput
-# import serial
+import serial
 import struct
 import time
 import math
 
-
-# port = "COM3"
-# baud_rate = 9600
-# ser = serial.Serial(port, baud_rate, timeout=1)
+port = '/dev/ttyACM0'
+baud_rate = 9600
+ser = serial.Serial(port, baud_rate, timeout=1)
 command_format = 'BHH'
 
 command_data = {
@@ -31,9 +30,8 @@ camera1 = videoSource("csi://1")      # '/dev/video0' for V4L2
 display0 = videoOutput("display://0") # 'my_video.mp4' for file
 display1 = videoOutput("display://1") # 'my_video.mp4' for file
 
-cmdID = 0
 def main():
-
+    cmdID = 1
     while display0.IsStreaming():
         stopFlag = 0
 
@@ -49,13 +47,16 @@ def main():
         detections1 = net.Detect(img1)
 
         for detection in detections0:
-            print("Camera 0 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
-            if(detection.ClassID == "PERSON"):
+            if(detection.ClassID == 1):
+                print("Camera 0 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
                 stopFlag = 1
-        for detection in detections1:
-            print("Camera 1 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
-            if(detection.ClassID == "PERSON"):
-                stopFlag = 1
+                break
+        if not stopFlag:           
+            for detection in detections1:
+                if(detection.ClassID == "Person"):
+                    print("Camera 1 - Class:", detection.ClassID, "Confidence:", detection.Confidence)
+                    stopFlag = 1
+                    break
 
         display0.Render(img0)
         display0.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
@@ -64,7 +65,11 @@ def main():
         display1.SetStatus("Object Detection | Network {:.0f} FPS".format(net.GetNetworkFPS()))
 
         if not stopFlag:
+            print("Sending Forward")
             command_packet = create_command_packet('FORWARD', 1, cmdID)
+            if cmdID % 7 == 0:
+                ser.write(command_packet)
+                ser.flush()
             cmdID += 1
 
 # Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
@@ -113,6 +118,7 @@ def check_weeds():
             return True
     
     return False
+
 
 if __name__ == "__main__":
     main()
