@@ -14,54 +14,6 @@ camera1 = videoSource("csi://1")      # '/dev/video0' for V4L2
 display0 = videoOutput("display://0") # 'my_video.mp4' for file
 display1 = videoOutput("display://1") # 'my_video.mp4' for file
 
-# Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
-def check_obstacles():
-
-    if (display0.isStreaming() == False):
-        return True
-    
-    img0 = camera0.Capture()
-    img1 = camera1.Capture()
-
-    if img0 is None or img1 is None:
-        return True
-    
-    detections0 = net.Detect(img0)
-    detections1 = net.Detect(img1)
-
-    for detection in detections0:
-        if (detection.ClassID == 1):
-            return True
-    for detection in detections1:
-        if (detection.ClassID == 1):
-            return True
-    
-    return False
-
-def check_weeds():
-
-    if (display0.isStreaming() == False):
-        return True
-    
-    img0 = camera0.Capture()
-    img1 = camera1.Capture()
-
-    if img0 is None or img1 is None:
-        return True
-    
-    detections0 = net.Detect(img0)
-    detections1 = net.Detect(img1)
-
-    # TODO: Replace "YELLOW STAR THISTLE" with target weed detection ID
-    for detection in detections0:
-        if (detection.ClassID == "YELLOW STAR THISTLE"):
-            return True
-    for detection in detections1:
-        if (detection.ClassID == "Yellow Star Thistle"):
-            return True
-    
-    return False
-
 # Replace with port name
 port = "/dev/ttyACM0"
 baud_rate = 9600
@@ -147,6 +99,60 @@ def get_gps():
         
     print("Current Location:\n\t Lat: " + str(latitude) + " Lon: " + str(longitude) + " SIV: " + str(siv))
     return [longitude, latitude]
+
+
+# Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
+# TODO: Make this more broad. Currently only looks for people, should identify ANY obstacle using depth
+#       sensor instead of image recognition
+def check_obstacles():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    # Checks for person
+    for detection in detections0:
+        if (detection.ClassID == 1):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == 1):
+            return True
+    
+    return False
+
+# Checks the camera for weeds. Returns True if weeds are detected, False if not.
+# TODO: Needs dataset trained on target weed species.
+def check_weeds():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    # TODO: Replace "YELLOW STAR THISTLE" with target weed detection ID
+    for detection in detections0:
+        if (detection.ClassID == "YELLOW STAR THISTLE"):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == "Yellow Star Thistle"):
+            return True
+    
+    return False
 
 
 def demo_main():
@@ -412,6 +418,6 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
         # If we get here, we're either done or stuck, so stop
                 
-                
+
 if __name__ == "__main__":
     demo_main()
