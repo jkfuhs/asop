@@ -386,15 +386,15 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
             print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
             input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
             horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles()
-            # input("checking east")
 
-            # Update weeds mapping
-            if (check_weeds()):
-                grid[grid_coord[0]+1][grid_coord[1]] = 2
-            else:
-                grid[grid_coord[0]+1][grid_coord[1]] = 1
 
             if (horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] == False):
+                # Update weeds mapping
+                if (check_weeds()):
+                    grid[grid_coord[0]+1][grid_coord[1]] = 2
+                else:
+                    grid[grid_coord[0]+1][grid_coord[1]] = 1
+                    
                 # Move
                 move_forward()
                 grid_coord[0] += 1
