@@ -276,12 +276,6 @@ void loop()
         moveTime = 0;
     }
 
-    // if (lastDone > 0 && millis() - lastDoneMsgTime > DONE_TIMER)
-    // {
-    //     Serial.print("DONE ");
-    //     Serial.println(lastDone);
-    //     lastDoneMsgTime = millis();
-    // }
     
     SerialEvent();    
 }
