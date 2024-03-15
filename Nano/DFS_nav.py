@@ -101,7 +101,7 @@ def get_gps():
     return [longitude, latitude]
 
 
-# Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
+# Checks if there is an obstacle (person) in the 1m x 1m square in front of the robot
 # TODO: Make this more broad. Currently only looks for people, should identify ANY obstacle using depth
 #       sensor instead of image recognition
 def check_obstacles():
@@ -129,7 +129,8 @@ def check_obstacles():
     return False
 
 # Checks the camera for weeds. Returns True if weeds are detected, False if not.
-# TODO: Needs dataset trained on target weed species.
+# TODO: Needs dataset trained on target weed species. Should only identify weeds
+#       within the 1m x 1 m square in front of the robot
 def check_weeds():
 
     if (display0.isStreaming() == False):
