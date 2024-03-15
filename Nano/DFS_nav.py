@@ -3,14 +3,67 @@ import struct
 import time
 import math
 import sys
-from detectnet import check_weeds, check_obstacles
 
-# DEMO variables: DELETE for final product
-h_obst_f = open("horiz_obstacles.txt", "r")
-v_obst_f = open("vert_obstacles.txt", "r")
+from jetson_inference import detectNet
+from jetson_utils import videoSource, videoOutput
+
+net = detectNet("ssd-mobilenet-v2", threshold=0.5)
+camera0 = videoSource("csi://0")      # '/dev/video0' for V4L2
+camera1 = videoSource("csi://1")      # '/dev/video0' for V4L2
+
+display0 = videoOutput("display://0") # 'my_video.mp4' for file
+display1 = videoOutput("display://1") # 'my_video.mp4' for file
+
+# Checks if there is an obstacle (person) in front of robot. Returns True if there is, False if there isn't
+def check_obstacles():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    for detection in detections0:
+        if (detection.ClassID == 1):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == 1):
+            return True
+    
+    return False
+
+def check_weeds():
+
+    if (display0.isStreaming() == False):
+        return True
+    
+    img0 = camera0.Capture()
+    img1 = camera1.Capture()
+
+    if img0 is None or img1 is None:
+        return True
+    
+    detections0 = net.Detect(img0)
+    detections1 = net.Detect(img1)
+
+    # TODO: Replace "YELLOW STAR THISTLE" with target weed detection ID
+    for detection in detections0:
+        if (detection.ClassID == "YELLOW STAR THISTLE"):
+            return True
+    for detection in detections1:
+        if (detection.ClassID == "Yellow Star Thistle"):
+            return True
+    
+    return False
 
 # Replace with port name
-port = "COM3"
+port = "/dev/ttyACM0"
 baud_rate = 9600
 
 # Start pos
@@ -107,7 +160,6 @@ def demo_main():
     current_loc = get_gps()
     grid = setup_grid(sw_corner, ne_corner)
     grid_coord = [0, 0]
-    # print(np.matrix(grid))
     meters_per_degree = 111111 * math.cos(sw_corner[0] * math.pi / 180)
     grid_coord[0] = int((current_loc[0] - sw_corner[0]) * meters_per_degree)
     grid_coord[1] = int((current_loc[1] - sw_corner[1]) * meters_per_degree)
@@ -123,22 +175,10 @@ def demo_main():
         DFS_step(grid, grid_coord, vert_obstacles, horiz_obstacles)
 
 
-# sw_corner = [35.30002, -120.662]
-# ne_corner = [35.30008, -120.661]
-# current_loc = get_gps()
-# grid = setup_grid(sw_corner, ne_corner)
-# grid_coord = [0, 0]
-# grid_coord[0] = int((current_loc[0] - sw_corner[0]) * 111111 * math.cos(sw_corner[0] * math.pi / 180))
-# grid_coord[1] = int((current_loc[1] - sw_corner[1]) * 111111 * math.cos(sw_corner[0] * math.pi / 180))
-# print(current_loc)
-# print(grid_coord)
-# if (grid_coord[0] < 0 or grid_coord[0] > len(grid[0]) or grid_coord[1] < 0 or grid_coord[1] > len(grid)):
-#     print("Robot out of bounds. Move closer to center of field")
-# else:
-#     print("Robot in bounds. Beginning DFS of field for weeds")
 
 
-# Placeholder functions for demo
+# TODO: Calibrate motor speeds: turning time and forward movement time.
+# Should move forward exactly 1m
 def move_forward():
     pass
     # packet = create_command_packet(command_data["FORWARD"], 1,unique_id)
@@ -153,49 +193,22 @@ def move_forward():
     #     reply = reply.decode()
     #     if (reply[:4] == "DONE" and int(reply[5:]) == unique_id):
     #         return
-
+# TODO: hould turn the robot so it faces west
 def turn_west():
     pass
 
+# TODO: Turn the robot so it faces east
 def turn_east():
     pass
 
+# TODO: Turn the robot so it faces south
 def turn_south():
     pass
 
+# TODO: Turn the robot so it faces north
 def turn_north():
     pass
 
-# def check_obstacles(Horiz_Vert, x, y):
-
-    # r_val = False
-
-    # if Horiz_Vert == True:
-    #     # Check horizontal mapping
-    #     h_obst_f = open("horiz_obstacles.txt", "r")
-    #     for line in h_obst_f:
-    #         tokens = line.split()
-    #         if (int(tokens[0]) == x and int(tokens[1]) == y):
-    #             r_val = True
-    #     h_obst_f.close()
-        
-    # else:
-    #     # Check vertical mapping
-    #     v_obst_f = open("vert_obstacles.txt", "r")
-    #     for line in v_obst_f:
-    #         tokens = line.split()
-    #         if (int(tokens[0]) == x and int(tokens[1]) == y):
-    #             r_val = True
-    #     v_obst_f.close()
-    
-
-    # return r_val
-
-# def check_weeds():
-#     if random() < 0.9:
-#         return False
-#     else:
-#         return True
 
 def print_maps(grid, grid_coord, v_obst, h_obst):
     # For each row, do:
@@ -228,12 +241,6 @@ def print_maps(grid, grid_coord, v_obst, h_obst):
 
 def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
     
-    print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
-    # vertical_obstacles[1][2] = True
-    # vertical_obstacles[1][4] = True
-    # print(np.matrix(vertical_obstacles))
-    input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
-    
     # Check if we're at the west border
     if grid_coord[0] > 0:
         # Check west
@@ -242,7 +249,9 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
             turn_west()
 
             # Update obstacle mapping
-            horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(True, grid_coord[0], grid_coord[1])
+            print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+            input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+            horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
             # horizontal_obstacles[grid_coord[0]][grid_coord[1]] = True
 
             # input("checking west")
@@ -266,13 +275,17 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Return to where we were
                 turn_east()
-                horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles(True, grid_coord[0]+1, grid_coord[1])
+                print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles()
                 # horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = True
 
                 # Edge case where something moved into your path behind you, so you cannot return to where you were by stacks
                 while (horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] == True):
                     # Current solution: wait until return path is clear
-                    horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles(True, grid_coord[0]+1, grid_coord[1])
+                    print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                    input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                    horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles()
                     
                 move_forward()
                 grid_coord[0] += 1
@@ -283,13 +296,9 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
             turn_south()
             # Update obstacle mapping
-            vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(False, grid_coord[0], grid_coord[1])
-            # input("checking south at coords: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]-1) + "]")
-            # print(np.matrix(grid))
-
-            # input("updated grid")
-            # print(np.matrix(grid))
-
+            print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+            input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+            vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
 
             # Check obstacles
             if (vertical_obstacles[grid_coord[0]][grid_coord[1]] == False):
@@ -308,11 +317,15 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Return to where we were
                 turn_north()
-                vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles(False, grid_coord[0], grid_coord[1]+1)
+                print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles()
 
                 # Edge case where something moved behind you
                 if (vertical_obstacles[grid_coord[0]][grid_coord[1]+1] == True):
-                    vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles(False, grid_coord[0], grid_coord[1]+1)
+                    print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                    input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                    vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles()
             
                 move_forward()
                 grid_coord[1]  += 1
@@ -323,7 +336,9 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
             turn_north()
             # Update obstacle mapping
-            vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles(False, grid_coord[0], grid_coord[1]+1)
+            print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+            input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+            vertical_obstacles[grid_coord[0]][grid_coord[1]+1] = check_obstacles()
             # input("checking north")
 
             
@@ -342,11 +357,15 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Return to where we were
                 turn_south()
-                vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(False, grid_coord[0], grid_coord[1])
+                print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
 
                 # Edge case where something moved behind you
                 if (vertical_obstacles[grid_coord[0]][grid_coord[1]] == True):
-                    vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(False, grid_coord[0], grid_coord[1])
+                    print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                    input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                    vertical_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
 
                 move_forward()
                 grid_coord[1] -= 1
@@ -357,7 +376,9 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
             turn_east()
             # Update obstacle mapping
-            horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles(True, grid_coord[0]+1, grid_coord[1])
+            print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+            input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+            horizontal_obstacles[grid_coord[0]+1][grid_coord[1]] = check_obstacles()
             # input("checking east")
 
             # Update weeds mapping
@@ -376,13 +397,21 @@ def DFS_step(grid, grid_coord, vertical_obstacles, horizontal_obstacles):
 
                 # Return to where we were
                 turn_west()
-                horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(True, grid_coord[0], grid_coord[1])
+                print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
 
                 # Edge case where something moved behind you
                 if (horizontal_obstacles[grid_coord[0]][grid_coord[1]] == True):
-                    horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles(True, grid_coord[0], grid_coord[1])
+                    print_maps(grid, grid_coord, vertical_obstacles, horizontal_obstacles)
+                    input("Current Loc: [" + str(grid_coord[0]) + ", " + str(grid_coord[1]) + "]\nPress Enter to continue")
+                    horizontal_obstacles[grid_coord[0]][grid_coord[1]] = check_obstacles()
 
                 move_forward()
                 grid_coord[0] -= 1
 
         # If we get here, we're either done or stuck, so stop
+                
+                
+if __name__ == "__main__":
+    demo_main()

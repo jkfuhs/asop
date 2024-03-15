@@ -88,10 +88,10 @@ def check_obstacles():
     detections1 = net.Detect(img1)
 
     for detection in detections0:
-        if (detection.ClassID == "PERSON"):
+        if (detection.ClassID == 1):
             return True
     for detection in detections1:
-        if (detection.ClassID == "PERSON"):
+        if (detection.ClassID == 1):
             return True
     
     return False
